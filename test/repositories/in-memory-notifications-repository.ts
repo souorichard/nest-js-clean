@@ -9,7 +9,9 @@ export class InMemoryNotificationsRepository
   async findById(id: string) {
     const notification = this.items.find((item) => item.id.toString() === id)
 
-    if (!notification) return null
+    if (!notification) {
+      return null
+    }
 
     return notification
   }

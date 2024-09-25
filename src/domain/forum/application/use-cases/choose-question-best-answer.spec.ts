@@ -1,72 +1,82 @@
+import { InMemoryAnswersRepository } from 'test/repositories/in-memory-answers-repository'
 import { makeAnswer } from 'test/factories/make-answer'
+import { UniqueEntityID } from '@/core/entities/unique-entity-id'
+import { InMemoryQuestionsRepository } from 'test/repositories/in-memory-questions-repository'
+import { ChooseQuestionBestAnswerUseCase } from '@/domain/forum/application/use-cases/choose-question-best-answer'
 import { makeQuestion } from 'test/factories/make-question'
-import { InMemoryAnswerAttachmentsRespository } from 'test/repositories/in-memory-answer-attachments-repository'
-import { InMemoryAnswersRespository } from 'test/repositories/in-memory-answers-repository'
-import { InMemoryQuestionAttachmentsRespository } from 'test/repositories/in-memory-question-attachments-repository'
-import { InMemoryQuestionsRespository } from 'test/repositories/in-memory-questions-repository'
+import { NotAllowedError } from '@/core/errors/errors/not-allowed-error'
+import { InMemoryAnswerAttachmentsRepository } from 'test/repositories/in-memory-answer-attachments-repository'
+import { InMemoryQuestionAttachmentsRepository } from 'test/repositories/in-memory-question-attachments-repository'
+import { InMemoryStudentsRepository } from 'test/repositories/in-memory-students-repository'
+import { InMemoryAttachmentsRepository } from 'test/repositories/in-memory-attachments-repository'
 
-import { UniqueEntityId } from '@/core/entities/unique-entity-id'
-
-import { ChooseQuestionBestAnswerUseCase } from './choose-question-best-answer'
-
-let questionAttachmentsRepository: InMemoryQuestionAttachmentsRespository
-let answerAttachmentsRepository: InMemoryAnswerAttachmentsRespository
-let questionsRepository: InMemoryQuestionsRespository
-let answersRepository: InMemoryAnswersRespository
+let inMemoryAnswerAttachmentsRepository: InMemoryAnswerAttachmentsRepository
+let inMemoryQuestionAttachmentsRepository: InMemoryQuestionAttachmentsRepository
+let inMemoryQuestionsRepository: InMemoryQuestionsRepository
+let inMemoryAnswersRepository: InMemoryAnswersRepository
+let inMemoryAttachmentsRepository: InMemoryAttachmentsRepository
+let inMemoryStudentsRepository: InMemoryStudentsRepository
 let sut: ChooseQuestionBestAnswerUseCase
 
 describe('Choose Question Best Answer', () => {
   beforeEach(() => {
-    questionAttachmentsRepository = new InMemoryQuestionAttachmentsRespository()
-    answerAttachmentsRepository = new InMemoryAnswerAttachmentsRespository()
-    questionsRepository = new InMemoryQuestionsRespository(
-      questionAttachmentsRepository,
+    inMemoryAnswerAttachmentsRepository =
+      new InMemoryAnswerAttachmentsRepository()
+    inMemoryQuestionAttachmentsRepository =
+      new InMemoryQuestionAttachmentsRepository()
+    inMemoryAttachmentsRepository = new InMemoryAttachmentsRepository()
+    inMemoryStudentsRepository = new InMemoryStudentsRepository()
+    inMemoryQuestionsRepository = new InMemoryQuestionsRepository(
+      inMemoryQuestionAttachmentsRepository,
+      inMemoryAttachmentsRepository,
+      inMemoryStudentsRepository,
     )
-    answersRepository = new InMemoryAnswersRespository(
-      answerAttachmentsRepository,
+    inMemoryAnswersRepository = new InMemoryAnswersRepository(
+      inMemoryAnswerAttachmentsRepository,
     )
+
     sut = new ChooseQuestionBestAnswerUseCase(
-      questionsRepository,
-      answersRepository,
+      inMemoryQuestionsRepository,
+      inMemoryAnswersRepository,
     )
   })
 
-  it('should be able to choose question best answer', async () => {
+  it('should be able to choose the question best answer', async () => {
     const question = makeQuestion()
 
     const answer = makeAnswer({
       questionId: question.id,
     })
 
-    await questionsRepository.create(question)
-    await answersRepository.create(answer)
+    await inMemoryQuestionsRepository.create(question)
+    await inMemoryAnswersRepository.create(answer)
 
-    const result = await sut.execute({
+    await sut.execute({
       answerId: answer.id.toString(),
       authorId: question.authorId.toString(),
     })
 
-    expect(result.isRight()).toBe(true)
-    expect(questionsRepository.items[0].bestAnswerId).toEqual(answer.id)
+    expect(inMemoryQuestionsRepository.items[0].bestAnswerId).toEqual(answer.id)
   })
 
-  it('should not be able to choose another user question best answer', async () => {
+  it('should not be able to to choose another user question best answer', async () => {
     const question = makeQuestion({
-      authorId: new UniqueEntityId('author-01'),
+      authorId: new UniqueEntityID('author-1'),
     })
 
     const answer = makeAnswer({
       questionId: question.id,
     })
 
-    await questionsRepository.create(question)
-    await answersRepository.create(answer)
+    await inMemoryQuestionsRepository.create(question)
+    await inMemoryAnswersRepository.create(answer)
 
     const result = await sut.execute({
       answerId: answer.id.toString(),
-      authorId: 'author-02',
+      authorId: 'author-2',
     })
 
     expect(result.isLeft()).toBe(true)
+    expect(result.value).toBeInstanceOf(NotAllowedError)
   })
 })

@@ -1,35 +1,36 @@
-import { Either, left, right } from '@/core/either'
-import { UniqueEntityId } from '@/core/entities/unique-entity-id'
-import { ResourceNotFoundError } from '@/core/errors/resource-not-found-error'
-
-import { QuestionComment } from '../../enterprise/entities/question-comment'
-import { QuestionCommentsRepository } from '../repositories/question-comments-repository'
 import { QuestionsRepository } from '../repositories/questions-repository'
+import { UniqueEntityID } from '@/core/entities/unique-entity-id'
+import { QuestionComment } from '@/domain/forum/enterprise/entities/question-comment'
+import { QuestionCommentsRepository } from '@/domain/forum/application/repositories/question-comments-repository'
+import { Either, left, right } from '@/core/either'
+import { ResourceNotFoundError } from '@/core/errors/errors/resource-not-found-error'
+import { Injectable } from '@nestjs/common'
 
-interface CommnetOnQuestionUseCaseRequest {
+interface CommentOnQuestionUseCaseRequest {
   authorId: string
   questionId: string
   content: string
 }
 
-type CommnetOnQuestionUseCaseResponse = Either<
+type CommentOnQuestionUseCaseResponse = Either<
   ResourceNotFoundError,
   {
     questionComment: QuestionComment
   }
 >
 
-export class CommnetOnQuestionUseCase {
+@Injectable()
+export class CommentOnQuestionUseCase {
   constructor(
     private questionsRepository: QuestionsRepository,
-    private questionCommentsRepository: QuestionCommentsRepository
+    private questionCommentsRepository: QuestionCommentsRepository,
   ) {}
 
   async execute({
     authorId,
     questionId,
     content,
-  }: CommnetOnQuestionUseCaseRequest): Promise<CommnetOnQuestionUseCaseResponse> {
+  }: CommentOnQuestionUseCaseRequest): Promise<CommentOnQuestionUseCaseResponse> {
     const question = await this.questionsRepository.findById(questionId)
 
     if (!question) {
@@ -37,8 +38,8 @@ export class CommnetOnQuestionUseCase {
     }
 
     const questionComment = QuestionComment.create({
-      authorId: new UniqueEntityId(authorId),
-      questionId: new UniqueEntityId(questionId),
+      authorId: new UniqueEntityID(authorId),
+      questionId: new UniqueEntityID(questionId),
       content,
     })
 

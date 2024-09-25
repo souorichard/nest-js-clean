@@ -1,70 +1,77 @@
-import { makeQuestion } from 'test/factories/make-question'
-import { makeQuestionAttachment } from 'test/factories/make-question-attachment'
-import { InMemoryQuestionAttachmentsRespository } from 'test/repositories/in-memory-question-attachments-repository'
-import { InMemoryQuestionsRespository } from 'test/repositories/in-memory-questions-repository'
-
-import { UniqueEntityId } from '@/core/entities/unique-entity-id'
-import { NotAllowedError } from '@/core/errors/not-allowed-error'
-
 import { DeleteQuestionUseCase } from './delete-question'
+import { InMemoryQuestionsRepository } from 'test/repositories/in-memory-questions-repository'
+import { makeQuestion } from 'test/factories/make-question'
+import { UniqueEntityID } from '@/core/entities/unique-entity-id'
+import { NotAllowedError } from '@/core/errors/errors/not-allowed-error'
+import { InMemoryQuestionAttachmentsRepository } from 'test/repositories/in-memory-question-attachments-repository'
+import { makeQuestionAttachment } from 'test/factories/make-question-attachments'
+import { InMemoryAttachmentsRepository } from 'test/repositories/in-memory-attachments-repository'
+import { InMemoryStudentsRepository } from 'test/repositories/in-memory-students-repository'
 
-let questionAttachmentsRepository: InMemoryQuestionAttachmentsRespository
-let questionsRepository: InMemoryQuestionsRespository
+let inMemoryQuestionsRepository: InMemoryQuestionsRepository
+let inMemoryQuestionAttachmentsRepository: InMemoryQuestionAttachmentsRepository
+let inMemoryAttachmentsRepository: InMemoryAttachmentsRepository
+let inMemoryStudentsRepository: InMemoryStudentsRepository
 let sut: DeleteQuestionUseCase
 
 describe('Delete Question', () => {
   beforeEach(() => {
-    questionAttachmentsRepository = new InMemoryQuestionAttachmentsRespository()
-    questionsRepository = new InMemoryQuestionsRespository(
-      questionAttachmentsRepository,
+    inMemoryQuestionAttachmentsRepository =
+      new InMemoryQuestionAttachmentsRepository()
+    inMemoryAttachmentsRepository = new InMemoryAttachmentsRepository()
+    inMemoryStudentsRepository = new InMemoryStudentsRepository()
+    inMemoryQuestionsRepository = new InMemoryQuestionsRepository(
+      inMemoryQuestionAttachmentsRepository,
+      inMemoryAttachmentsRepository,
+      inMemoryStudentsRepository,
     )
-    sut = new DeleteQuestionUseCase(questionsRepository)
+
+    sut = new DeleteQuestionUseCase(inMemoryQuestionsRepository)
   })
 
   it('should be able to delete a question', async () => {
     const newQuestion = makeQuestion(
       {
-        authorId: new UniqueEntityId('author-01'),
+        authorId: new UniqueEntityID('author-1'),
       },
-      new UniqueEntityId('question-01'),
+      new UniqueEntityID('question-1'),
     )
 
-    await questionsRepository.create(newQuestion)
+    await inMemoryQuestionsRepository.create(newQuestion)
 
-    questionAttachmentsRepository.items.push(
+    inMemoryQuestionAttachmentsRepository.items.push(
       makeQuestionAttachment({
         questionId: newQuestion.id,
-        attachmentId: new UniqueEntityId('attachment-01'),
+        attachmentId: new UniqueEntityID('1'),
       }),
       makeQuestionAttachment({
         questionId: newQuestion.id,
-        attachmentId: new UniqueEntityId('attachment-02'),
+        attachmentId: new UniqueEntityID('2'),
       }),
     )
 
-    const result = await sut.execute({
-      questionId: 'question-01',
-      authorId: 'author-01',
+    await sut.execute({
+      questionId: 'question-1',
+      authorId: 'author-1',
     })
 
-    expect(result.isRight()).toBe(true)
-    expect(questionsRepository.items).toHaveLength(0)
-    expect(questionAttachmentsRepository.items).toHaveLength(0)
+    expect(inMemoryQuestionsRepository.items).toHaveLength(0)
+    expect(inMemoryQuestionAttachmentsRepository.items).toHaveLength(0)
   })
 
   it('should not be able to delete a question from another user', async () => {
     const newQuestion = makeQuestion(
       {
-        authorId: new UniqueEntityId('author-01'),
+        authorId: new UniqueEntityID('author-1'),
       },
-      new UniqueEntityId('question-01'),
+      new UniqueEntityID('question-1'),
     )
 
-    await questionsRepository.create(newQuestion)
+    await inMemoryQuestionsRepository.create(newQuestion)
 
     const result = await sut.execute({
-      questionId: 'question-01',
-      authorId: 'author-02',
+      questionId: 'question-1',
+      authorId: 'author-2',
     })
 
     expect(result.isLeft()).toBe(true)

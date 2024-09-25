@@ -1,24 +1,22 @@
-import { makeNotification } from 'test/factories/make-notification'
 import { InMemoryNotificationsRepository } from 'test/repositories/in-memory-notifications-repository'
-
-import { UniqueEntityId } from '@/core/entities/unique-entity-id'
-import { NotAllowedError } from '@/core/errors/not-allowed-error'
-
 import { ReadNotificationUseCase } from './read-notification'
+import { makeNotification } from 'test/factories/make-notification'
+import { UniqueEntityID } from '@/core/entities/unique-entity-id'
+import { NotAllowedError } from '@/core/errors/errors/not-allowed-error'
 
-let notificationsRepository: InMemoryNotificationsRepository
+let inMemoryNotificationsRepository: InMemoryNotificationsRepository
 let sut: ReadNotificationUseCase
 
-describe('Read Notification', () => {
+describe('Send Notification', () => {
   beforeEach(() => {
-    notificationsRepository = new InMemoryNotificationsRepository()
-    sut = new ReadNotificationUseCase(notificationsRepository)
+    inMemoryNotificationsRepository = new InMemoryNotificationsRepository()
+    sut = new ReadNotificationUseCase(inMemoryNotificationsRepository)
   })
 
   it('should be able to read a notification', async () => {
     const notification = makeNotification()
 
-    notificationsRepository.create(notification)
+    inMemoryNotificationsRepository.create(notification)
 
     const result = await sut.execute({
       recipientId: notification.recipientId.toString(),
@@ -26,19 +24,21 @@ describe('Read Notification', () => {
     })
 
     expect(result.isRight()).toBe(true)
-    expect(notificationsRepository.items[0].readAt).toEqual(expect.any(Date))
+    expect(inMemoryNotificationsRepository.items[0].readAt).toEqual(
+      expect.any(Date),
+    )
   })
 
   it('should not be able to read a notification from another user', async () => {
     const notification = makeNotification({
-      recipientId: new UniqueEntityId('recipient-01'),
+      recipientId: new UniqueEntityID('recipient-1'),
     })
 
-    notificationsRepository.create(notification)
+    inMemoryNotificationsRepository.create(notification)
 
     const result = await sut.execute({
       notificationId: notification.id.toString(),
-      recipientId: 'recipient-02',
+      recipientId: 'recipient-2',
     })
 
     expect(result.isLeft()).toBe(true)

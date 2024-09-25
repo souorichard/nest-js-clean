@@ -1,87 +1,132 @@
-import { makeAnswer } from 'test/factories/make-answer'
-import { makeAnswerAttachment } from 'test/factories/make-answer-attachment'
-import { InMemoryAnswerAttachmentsRespository } from 'test/repositories/in-memory-answer-attachments-repository'
-import { InMemoryAnswersRespository } from 'test/repositories/in-memory-answers-repository'
-
-import { UniqueEntityId } from '@/core/entities/unique-entity-id'
-import { NotAllowedError } from '@/core/errors/not-allowed-error'
-
 import { EditAnswerUseCase } from './edit-answer'
+import { InMemoryAnswersRepository } from 'test/repositories/in-memory-answers-repository'
+import { makeAnswer } from 'test/factories/make-answer'
+import { UniqueEntityID } from '@/core/entities/unique-entity-id'
+import { NotAllowedError } from '@/core/errors/errors/not-allowed-error'
+import { InMemoryAnswerAttachmentsRepository } from 'test/repositories/in-memory-answer-attachments-repository'
+import { makeAnswerAttachment } from 'test/factories/make-answer-attachments'
 
-let answerAttachmentsRepository: InMemoryAnswerAttachmentsRespository
-let answersRepository: InMemoryAnswersRespository
+let inMemoryAnswerAttachmentsRepository: InMemoryAnswerAttachmentsRepository
+let inMemoryAnswersRepository: InMemoryAnswersRepository
 let sut: EditAnswerUseCase
 
 describe('Edit Answer', () => {
   beforeEach(() => {
-    answerAttachmentsRepository = new InMemoryAnswerAttachmentsRespository()
-    answersRepository = new InMemoryAnswersRespository(
-      answerAttachmentsRepository,
+    inMemoryAnswerAttachmentsRepository =
+      new InMemoryAnswerAttachmentsRepository()
+    inMemoryAnswersRepository = new InMemoryAnswersRepository(
+      inMemoryAnswerAttachmentsRepository,
     )
-    sut = new EditAnswerUseCase(answersRepository, answerAttachmentsRepository)
+
+    sut = new EditAnswerUseCase(
+      inMemoryAnswersRepository,
+      inMemoryAnswerAttachmentsRepository,
+    )
   })
 
   it('should be able to edit a answer', async () => {
     const newAnswer = makeAnswer(
       {
-        authorId: new UniqueEntityId('author-01'),
+        authorId: new UniqueEntityID('author-1'),
       },
-      new UniqueEntityId('answer-01'),
+      new UniqueEntityID('answer-1'),
     )
 
-    await answersRepository.create(newAnswer)
+    await inMemoryAnswersRepository.create(newAnswer)
 
-    answerAttachmentsRepository.items.push(
+    inMemoryAnswerAttachmentsRepository.items.push(
       makeAnswerAttachment({
         answerId: newAnswer.id,
-        attachmentId: new UniqueEntityId('attachment-01'),
+        attachmentId: new UniqueEntityID('1'),
       }),
       makeAnswerAttachment({
         answerId: newAnswer.id,
-        attachmentId: new UniqueEntityId('attachment-02'),
+        attachmentId: new UniqueEntityID('2'),
       }),
     )
 
-    const result = await sut.execute({
-      answerId: newAnswer.id.toString(),
-      authorId: 'author-01',
-      content: 'Test content',
-      attachmentsIds: ['attachment-01', 'attachment-03'],
+    await sut.execute({
+      answerId: newAnswer.id.toValue(),
+      authorId: 'author-1',
+      content: 'Conteúdo teste',
+      attachmentsIds: ['1', '3'],
     })
 
-    expect(result.isRight()).toBe(true)
-    expect(answersRepository.items[0]).toMatchObject({
-      content: 'Test content',
+    expect(inMemoryAnswersRepository.items[0]).toMatchObject({
+      content: 'Conteúdo teste',
     })
-    expect(answersRepository.items[0].attachments.currentItems).toHaveLength(2)
-    expect(answersRepository.items[0].attachments.currentItems).toEqual([
-      expect.objectContaining({
-        attachmentId: new UniqueEntityId('attachment-01'),
-      }),
-      expect.objectContaining({
-        attachmentId: new UniqueEntityId('attachment-03'),
-      }),
-    ])
+
+    expect(
+      inMemoryAnswersRepository.items[0].attachments.currentItems,
+    ).toHaveLength(2)
+    expect(inMemoryAnswersRepository.items[0].attachments.currentItems).toEqual(
+      [
+        expect.objectContaining({ attachmentId: new UniqueEntityID('1') }),
+        expect.objectContaining({ attachmentId: new UniqueEntityID('3') }),
+      ],
+    )
   })
 
   it('should not be able to edit a answer from another user', async () => {
     const newAnswer = makeAnswer(
       {
-        authorId: new UniqueEntityId('author-01'),
+        authorId: new UniqueEntityID('author-1'),
       },
-      new UniqueEntityId('answer-01'),
+      new UniqueEntityID('answer-1'),
     )
 
-    await answersRepository.create(newAnswer)
+    await inMemoryAnswersRepository.create(newAnswer)
 
     const result = await sut.execute({
-      answerId: newAnswer.id.toString(),
-      authorId: 'author-02',
-      content: 'Test content',
+      answerId: newAnswer.id.toValue(),
+      authorId: 'author-2',
+      content: 'Conteúdo teste',
       attachmentsIds: [],
     })
 
     expect(result.isLeft()).toBe(true)
     expect(result.value).toBeInstanceOf(NotAllowedError)
+  })
+
+  it('should sync new and removed attachment when editing an answer', async () => {
+    const newAnswer = makeAnswer(
+      {
+        authorId: new UniqueEntityID('author-1'),
+      },
+      new UniqueEntityID('question-1'),
+    )
+
+    await inMemoryAnswersRepository.create(newAnswer)
+
+    inMemoryAnswerAttachmentsRepository.items.push(
+      makeAnswerAttachment({
+        answerId: newAnswer.id,
+        attachmentId: new UniqueEntityID('1'),
+      }),
+      makeAnswerAttachment({
+        answerId: newAnswer.id,
+        attachmentId: new UniqueEntityID('2'),
+      }),
+    )
+
+    const result = await sut.execute({
+      answerId: newAnswer.id.toValue(),
+      authorId: 'author-1',
+      content: 'Conteúdo teste',
+      attachmentsIds: ['1', '3'],
+    })
+
+    expect(result.isRight()).toBe(true)
+    expect(inMemoryAnswerAttachmentsRepository.items).toHaveLength(2)
+    expect(inMemoryAnswerAttachmentsRepository.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          attachmentId: new UniqueEntityID('1'),
+        }),
+        expect.objectContaining({
+          attachmentId: new UniqueEntityID('3'),
+        }),
+      ]),
+    )
   })
 })

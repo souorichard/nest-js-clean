@@ -1,40 +1,52 @@
+import { InMemoryQuestionsRepository } from 'test/repositories/in-memory-questions-repository'
 import { makeQuestion } from 'test/factories/make-question'
-import { InMemoryQuestionAttachmentsRespository } from 'test/repositories/in-memory-question-attachments-repository'
-import { InMemoryQuestionCommentsRespository } from 'test/repositories/in-memory-question-comments-repository'
-import { InMemoryQuestionsRespository } from 'test/repositories/in-memory-questions-repository'
+import { InMemoryQuestionCommentsRepository } from 'test/repositories/in-memory-question-comments-repository'
+import { CommentOnQuestionUseCase } from '@/domain/forum/application/use-cases/comment-on-question'
+import { InMemoryQuestionAttachmentsRepository } from 'test/repositories/in-memory-question-attachments-repository'
+import { InMemoryAttachmentsRepository } from 'test/repositories/in-memory-attachments-repository'
+import { InMemoryStudentsRepository } from 'test/repositories/in-memory-students-repository'
 
-import { CommnetOnQuestionUseCase } from './comment-on-question'
+let inMemoryQuestionsRepository: InMemoryQuestionsRepository
+let inMemoryQuestionAttachmentsRepository: InMemoryQuestionAttachmentsRepository
+let inMemoryQuestionCommentsRepository: InMemoryQuestionCommentsRepository
+let inMemoryAttachmentsRepository: InMemoryAttachmentsRepository
+let inMemoryStudentsRepository: InMemoryStudentsRepository
+let sut: CommentOnQuestionUseCase
 
-let questionAttachmentsRepository: InMemoryQuestionAttachmentsRespository
-let questionsRepository: InMemoryQuestionsRespository
-let questionCommentsRepository: InMemoryQuestionCommentsRespository
-let sut: CommnetOnQuestionUseCase
-
-describe('Comment On Question', () => {
+describe('Comment on Question', () => {
   beforeEach(() => {
-    questionAttachmentsRepository = new InMemoryQuestionAttachmentsRespository()
-    questionsRepository = new InMemoryQuestionsRespository(
-      questionAttachmentsRepository,
+    inMemoryQuestionAttachmentsRepository =
+      new InMemoryQuestionAttachmentsRepository()
+    inMemoryAttachmentsRepository = new InMemoryAttachmentsRepository()
+    inMemoryStudentsRepository = new InMemoryStudentsRepository()
+    inMemoryQuestionsRepository = new InMemoryQuestionsRepository(
+      inMemoryQuestionAttachmentsRepository,
+      inMemoryAttachmentsRepository,
+      inMemoryStudentsRepository,
     )
-    questionCommentsRepository = new InMemoryQuestionCommentsRespository()
-    sut = new CommnetOnQuestionUseCase(
-      questionsRepository,
-      questionCommentsRepository,
+    inMemoryQuestionCommentsRepository = new InMemoryQuestionCommentsRepository(
+      inMemoryStudentsRepository,
+    )
+
+    sut = new CommentOnQuestionUseCase(
+      inMemoryQuestionsRepository,
+      inMemoryQuestionCommentsRepository,
     )
   })
 
   it('should be able to comment on question', async () => {
     const question = makeQuestion()
 
-    await questionsRepository.create(question)
+    await inMemoryQuestionsRepository.create(question)
 
-    const result = await sut.execute({
+    await sut.execute({
       questionId: question.id.toString(),
       authorId: question.authorId.toString(),
-      content: 'Test comment',
+      content: 'Comentário teste',
     })
 
-    expect(result.isRight()).toBe(true)
-    expect(questionCommentsRepository.items[0].content).toEqual('Test comment')
+    expect(inMemoryQuestionCommentsRepository.items[0].content).toEqual(
+      'Comentário teste',
+    )
   })
 })
